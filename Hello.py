@@ -1,13 +1,15 @@
 # This app is for educational purpose only. Insights gained is not financial advice. Use at your own risk!
 import streamlit as st
-from PIL import Image
+
+# from PIL import Image
 import pandas as pd
 import base64
 import matplotlib.pyplot as plt
 from bs4 import BeautifulSoup
 import requests
 import json
-import time
+
+# import time
 
 
 # ---------------------------------#
@@ -41,7 +43,6 @@ expander_bar.markdown(
     """
 * **Python libraries:** base64, pandas, streamlit, numpy, matplotlib, seaborn, BeautifulSoup, requests, json, time
 * **Data source:** [CoinMarketCap](http://coinmarketcap.com).
-* **Credit:** Web scraper adapted from the Medium article *[Web Scraping Crypto Prices With Python](https://towardsdatascience.com/web-scraping-crypto-prices-with-python-41072ea5b5bf)* written by [Bryan Feng](https://medium.com/@bryanf).
 """
 )
 
@@ -54,20 +55,21 @@ col2, col3 = st.columns((2, 1))
 
 # ---------------------------------#
 # Sidebar + Main panel
-col1.header("Input Options")
+col1.header("Ayarlar")
 
 ## Sidebar - Currency price unit
-currency_price_unit = col1.selectbox("Select currency for price", ("USD", "BTC", "ETH"))
+currency_price_unit = col1.selectbox(" Fiyat için para birimini seçin", ("USD", "", ""))
 
 
 # Web scraping of CoinMarketCap data
 @st.cache_data
 def load_data():
-    cmc = requests.get("https://coinmarketcap.com")
+    """fetch data"""
+    cmc = requests.get("https://coinmarketcap.com", timeout=10)
     soup = BeautifulSoup(cmc.content, "html.parser")
 
     data = soup.find("script", id="__NEXT_DATA__", type="application/json")
-    coins = {}
+
     coin_data = json.loads(data.contents[0])
     coin_data1 = json.loads(coin_data["props"]["initialState"])
     # print("coin data", type(json.loads(coin_data["props"]["initialState"])))
@@ -83,26 +85,57 @@ def load_data():
     percent_change_1h = []
     percent_change_24h = []
     percent_change_7d = []
+    percent_change_30d = []
     price = []
     volume_24h = []
     first = False
+    name_indis = 0
+    symbol_indis = 0
+    price_indis = 0
+    change_1h_indis = 0
+    change_24h_indis = 0
+    change_7d_indis = 0
+    market_cap_indis = 0
+    volume_24h_indis = 0
+    change_30d_indis = 0
     for i in listings:
-        print("type i", type(i))
-        # print(i)
-        # st.json(i)
-        if first == False and i["keysArr"] != []:
+        if not first and i["keysArr"] != []:
+            print(i["keysArr"])
+            for i, j in enumerate(i["keysArr"]):
+                match j:
+                    case "name":
+                        name_indis = i
+                    case "symbol":
+                        symbol_indis = i
+                    case "quote.USD.price":
+                        price_indis = i
+                    case "quote.USD.percentChange1h":
+                        change_1h_indis = i
+                    case "quote.USD.percentChange24h":
+                        change_24h_indis = i
+                    case "quote.USD.percentChange7d":
+                        change_7d_indis = i
+                    case "quote.USD.marketCap":
+                        market_cap_indis = i
+                    case "quote.USD.volume24h":
+                        volume_24h_indis = i
+                    case "quote.USD.percentChange30d":
+                        change_30d_indis = i
+                    case _:
+                        print(i, j)
             first = True
             continue
-        coin_name.append(i[14])
-        coin_symbol.append(i[38])
-        price.append(i[28])
-        percent_change_1h.append(i[21])
-        percent_change_24h.append(i[23])
-        percent_change_7d.append(i[26])
-        market_cap.append(i[18])
-        volume_24h.append(i[31])
+        coin_name.append(i[name_indis])
+        coin_symbol.append(i[symbol_indis])
+        price.append(i[price_indis])
+        percent_change_1h.append(i[change_1h_indis])
+        percent_change_24h.append(i[change_24h_indis])
+        percent_change_7d.append(i[change_7d_indis])
+        percent_change_30d.append(i[change_30d_indis])
+        market_cap.append(i[market_cap_indis])
+        volume_24h.append(i[volume_24h_indis])
 
-    df = pd.DataFrame(
+    data_frame = pd.DataFrame(
         columns=[
             "coin_name",
             "coin_symbol",
@@ -110,20 +143,22 @@ def load_data():
             "percent_change_1h",
             "percent_change_24h",
             "percent_change_7d",
+            "percent_change_30d",
             "price",
             "volume_24h",
         ]
     )
-    df["coin_name"] = coin_name
-    df["coin_symbol"] = coin_symbol
-    df["price"] = price
-    df["percent_change_1h"] = percent_change_1h
-    df["percent_change_24h"] = percent_change_24h
-    df["percent_change_7d"] = percent_change_7d
-    df["market_cap"] = market_cap
-    df["volume_24h"] = volume_24h
-    print(df)
-    return df
+    data_frame["coin_name"] = coin_name
+    data_frame["coin_symbol"] = coin_symbol
+    data_frame["price"] = price
+    data_frame["percent_change_1h"] = percent_change_1h
+    data_frame["percent_change_24h"] = percent_change_24h
+    data_frame["percent_change_7d"] = percent_change_7d
+    data_frame["percent_change_30d"] = percent_change_30d
+    data_frame["market_cap"] = market_cap
+    data_frame["volume_24h"] = volume_24h
+    print(data_frame)
+    return data_frame
 
 
 df = load_data()
@@ -135,15 +170,16 @@ selected_coin = col1.multiselect("Cryptocurrency", sorted_coin, sorted_coin)
 df_selected_coin = df[(df["coin_symbol"].isin(selected_coin))]  # Filtering data
 
 ## Sidebar - Number of coins to display
-num_coin = col1.slider("Display Top N Coins", 1, 100, 100)
+num_coin = col1.slider("Kaç Coin Gösterilsin", 1, 100, 100)
 df_coins = df_selected_coin[:num_coin]
 
 ## Sidebar - Percent change timeframe
-percent_timeframe = col1.selectbox("Percent change time frame", ["7d", "24h", "1h"])
+percent_timeframe = col1.selectbox("Zaman aralığı", ["7d", "24h", "1h", "30d"])
 percent_dict = {
     "7d": "percent_change_7d",
     "24h": "percent_change_24h",
     "1h": "percent_change_1h",
+    "30d": "percent_change_30d",
 }
 selected_percent_timeframe = percent_dict[percent_timeframe]
 
@@ -164,11 +200,11 @@ col2.dataframe(df_coins)
 
 # Download CSV data
 # https://discuss.streamlit.io/t/how-to-download-file-in-streamlit/1806
-def filedownload(df):
-    csv = df.to_csv(index=False)
+def filedownload(data):
+    """download csv file"""
+    csv = data.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()  # strings <-> bytes conversions
-    href = f'<a href="data:file/csv;base64,{b64}" download="crypto.csv">Download CSV File</a>'
-    return href
+    return f'<a href="data:file/csv;base64,{b64}" download="crypto.csv">Download CSV File</a>'
 
 
 col2.markdown(filedownload(df_selected_coin), unsafe_allow_html=True)
@@ -182,6 +218,7 @@ df_change = pd.concat(
         df_coins.percent_change_1h,
         df_coins.percent_change_24h,
         df_coins.percent_change_7d,
+        df_coins.percent_change_30d,
     ],
     axis=1,
 )
@@ -189,6 +226,7 @@ df_change = df_change.set_index("coin_symbol")
 df_change["positive_percent_change_1h"] = df_change["percent_change_1h"] > 0
 df_change["positive_percent_change_24h"] = df_change["percent_change_24h"] > 0
 df_change["positive_percent_change_7d"] = df_change["percent_change_7d"] > 0
+df_change["positive_percent_change_30d"] = df_change["percent_change_30d"] > 0
 col2.dataframe(df_change)
 
 # Conditional creation of Bar plot (time frame)
@@ -214,6 +252,17 @@ elif percent_timeframe == "24h":
     df_change["percent_change_24h"].plot(
         kind="barh",
         color=df_change.positive_percent_change_24h.map({True: "g", False: "r"}),
+    )
+    col3.pyplot(plt)
+elif percent_timeframe == "30d":
+    if sort_values == "Yes":
+        df_change = df_change.sort_values(by=["percent_change_30d"])
+    col3.write("*30 days period*")
+    plt.figure(figsize=(5, 25))
+    plt.subplots_adjust(top=1, bottom=0)
+    df_change["percent_change_30d"].plot(
+        kind="barh",
+        color=df_change.positive_percent_change_30d.map({True: "g", False: "r"}),
     )
     col3.pyplot(plt)
 else:
