@@ -1,4 +1,5 @@
-# This app is for educational purpose only. Insights gained is not financial advice. Use at your own risk!
+""" APP """
+
 import streamlit as st
 
 # from PIL import Image
@@ -242,7 +243,6 @@ if percent_timeframe == "7d":
         kind="barh",
         color=df_change.positive_percent_change_7d.map({True: "g", False: "r"}),
     )
-    col3.pyplot(plt)
 elif percent_timeframe == "24h":
     if sort_values == "Yes":
         df_change = df_change.sort_values(by=["percent_change_24h"])
@@ -253,7 +253,6 @@ elif percent_timeframe == "24h":
         kind="barh",
         color=df_change.positive_percent_change_24h.map({True: "g", False: "r"}),
     )
-    col3.pyplot(plt)
 elif percent_timeframe == "30d":
     if sort_values == "Yes":
         df_change = df_change.sort_values(by=["percent_change_30d"])
@@ -264,7 +263,6 @@ elif percent_timeframe == "30d":
         kind="barh",
         color=df_change.positive_percent_change_30d.map({True: "g", False: "r"}),
     )
-    col3.pyplot(plt)
 else:
     if sort_values == "Yes":
         df_change = df_change.sort_values(by=["percent_change_1h"])
@@ -275,4 +273,5 @@ else:
         kind="barh",
         color=df_change.positive_percent_change_1h.map({True: "g", False: "r"}),
     )
-    col3.pyplot(plt)
+
+col3.pyplot(plt)
