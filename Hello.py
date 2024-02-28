@@ -87,6 +87,10 @@ def load_data():
     percent_change_24h = []
     percent_change_7d = []
     percent_change_30d = []
+    percent_change_60d = []
+    percent_change_90d = []
+    percent_change_1y = []
+    percent_change_ytd = []
     price = []
     volume_24h = []
     first = False
@@ -99,6 +103,10 @@ def load_data():
     market_cap_indis = 0
     volume_24h_indis = 0
     change_30d_indis = 0
+    change_60d_indis = 0
+    change_90d_indis = 0
+    change_1y_indis = 0
+    change_ytd_indis = 0
     for i in listings:
         if not first and i["keysArr"] != []:
             print(i["keysArr"])
@@ -122,6 +130,14 @@ def load_data():
                         volume_24h_indis = i
                     case "quote.USD.percentChange30d":
                         change_30d_indis = i
+                    case "quote.USD.percentChange60d":
+                        change_60d_indis = i
+                    case "quote.USD.percentChange90d":
+                        change_90d_indis = i
+                    case "quote.USD.percentChange1y":
+                        change_1y_indis = i
+                    case "quote.USD.ytdPriceChangePercentage":
+                        change_ytd_indis = i
                     case _:
                         print(i, j)
             first = True
@@ -133,6 +149,10 @@ def load_data():
         percent_change_24h.append(i[change_24h_indis])
         percent_change_7d.append(i[change_7d_indis])
         percent_change_30d.append(i[change_30d_indis])
+        percent_change_60d.append(i[change_60d_indis])
+        percent_change_90d.append(i[change_90d_indis])
+        percent_change_1y.append(i[change_1y_indis])
+        percent_change_ytd.append(i[change_ytd_indis])
         market_cap.append(i[market_cap_indis])
         volume_24h.append(i[volume_24h_indis])
 
@@ -145,6 +165,10 @@ def load_data():
             "percent_change_24h",
             "percent_change_7d",
             "percent_change_30d",
+            "percent_change_60d",
+            "percent_change_90d",
+            "percent_change_1y",
+            "percent_change_ytd",
             "price",
             "volume_24h",
         ]
@@ -156,6 +180,10 @@ def load_data():
     data_frame["percent_change_24h"] = percent_change_24h
     data_frame["percent_change_7d"] = percent_change_7d
     data_frame["percent_change_30d"] = percent_change_30d
+    data_frame["percent_change_60d"] = percent_change_60d
+    data_frame["percent_change_90d"] = percent_change_90d
+    data_frame["percent_change_1y"] = percent_change_1y
+    data_frame["percent_change_ytd"] = percent_change_ytd
     data_frame["market_cap"] = market_cap
     data_frame["volume_24h"] = volume_24h
     print(data_frame)
@@ -175,12 +203,18 @@ num_coin = col1.slider("Kaç Coin Gösterilsin", 1, 100, 100)
 df_coins = df_selected_coin[:num_coin]
 
 ## Sidebar - Percent change timeframe
-percent_timeframe = col1.selectbox("Zaman aralığı", ["7d", "24h", "1h", "30d"])
+percent_timeframe = col1.selectbox(
+    "Zaman aralığı", ["7d", "24h", "1h", "30d", "60d", "90d", "1y", "ytd"]
+)
 percent_dict = {
     "7d": "percent_change_7d",
     "24h": "percent_change_24h",
     "1h": "percent_change_1h",
     "30d": "percent_change_30d",
+    "60d": "percent_change_60d",
+    "90d": "percent_change_90d",
+    "1y": "percent_change_1y",
+    "ytd": "percent_change_ytd",
 }
 selected_percent_timeframe = percent_dict[percent_timeframe]
 
@@ -220,6 +254,10 @@ df_change = pd.concat(
         df_coins.percent_change_24h,
         df_coins.percent_change_7d,
         df_coins.percent_change_30d,
+        df_coins.percent_change_60d,
+        df_coins.percent_change_90d,
+        df_coins.percent_change_1y,
+        df_coins.percent_change_ytd,
     ],
     axis=1,
 )
@@ -228,6 +266,10 @@ df_change["positive_percent_change_1h"] = df_change["percent_change_1h"] > 0
 df_change["positive_percent_change_24h"] = df_change["percent_change_24h"] > 0
 df_change["positive_percent_change_7d"] = df_change["percent_change_7d"] > 0
 df_change["positive_percent_change_30d"] = df_change["percent_change_30d"] > 0
+df_change["positive_percent_change_60d"] = df_change["percent_change_60d"] > 0
+df_change["positive_percent_change_90d"] = df_change["percent_change_90d"] > 0
+df_change["positive_percent_change_1y"] = df_change["percent_change_1y"] > 0
+df_change["positive_percent_change_ytd"] = df_change["percent_change_ytd"] > 0
 col2.dataframe(df_change)
 
 # Conditional creation of Bar plot (time frame)
@@ -262,6 +304,46 @@ elif percent_timeframe == "30d":
     df_change["percent_change_30d"].plot(
         kind="barh",
         color=df_change.positive_percent_change_30d.map({True: "g", False: "r"}),
+    )
+elif percent_timeframe == "60d":
+    if sort_values == "Yes":
+        df_change = df_change.sort_values(by=["percent_change_60d"])
+    col3.write("*60 days period*")
+    plt.figure(figsize=(5, 25))
+    plt.subplots_adjust(top=1, bottom=0)
+    df_change["percent_change_60d"].plot(
+        kind="barh",
+        color=df_change.positive_percent_change_60d.map({True: "g", False: "r"}),
+    )
+elif percent_timeframe == "90d":
+    if sort_values == "Yes":
+        df_change = df_change.sort_values(by=["percent_change_90d"])
+    col3.write("*90 days period*")
+    plt.figure(figsize=(5, 25))
+    plt.subplots_adjust(top=1, bottom=0)
+    df_change["percent_change_90d"].plot(
+        kind="barh",
+        color=df_change.positive_percent_change_90d.map({True: "g", False: "r"}),
+    )
+elif percent_timeframe == "1y":
+    if sort_values == "Yes":
+        df_change = df_change.sort_values(by=["percent_change_1y"])
+    col3.write("*1 year period*")
+    plt.figure(figsize=(5, 25))
+    plt.subplots_adjust(top=1, bottom=0)
+    df_change["percent_change_1y"].plot(
+        kind="barh",
+        color=df_change.positive_percent_change_1y.map({True: "g", False: "r"}),
+    )
+elif percent_timeframe == "ytd":
+    if sort_values == "Yes":
+        df_change = df_change.sort_values(by=["percent_change_ytd"])
+    col3.write("*Year to date period*")
+    plt.figure(figsize=(5, 25))
+    plt.subplots_adjust(top=1, bottom=0)
+    df_change["percent_change_ytd"].plot(
+        kind="barh",
+        color=df_change.positive_percent_change_ytd.map({True: "g", False: "r"}),
     )
 else:
     if sort_values == "Yes":
