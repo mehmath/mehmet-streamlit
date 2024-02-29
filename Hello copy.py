@@ -77,6 +77,19 @@ def load_data():
         print(e)
         return None
 
+    coin_name = []
+    coin_symbol = []
+    market_cap = []
+    percent_change_1h = []
+    percent_change_24h = []
+    percent_change_7d = []
+    percent_change_30d = []
+    percent_change_60d = []
+    percent_change_90d = []
+    percent_change_1y = []
+    percent_change_ytd = []
+    price = []
+    volume_24h = []
     name_indis = listings[0]["keysArr"].index("name")
     symbol_indis = listings[0]["keysArr"].index("symbol")
     price_indis = listings[0]["keysArr"].index("quote.USD.price")
@@ -93,23 +106,53 @@ def load_data():
         "quote.USD.ytdPriceChangePercentage"
     )
 
-    return pd.DataFrame(
-        {
-            "coin_name": [i[name_indis] for i in listings[1:]],
-            "coin_symbol": [i[symbol_indis] for i in listings[1:]],
-            "price": [i[price_indis] for i in listings[1:]],
-            "percent_change_1h": [i[change_1h_indis] for i in listings[1:]],
-            "percent_change_24h": [i[change_24h_indis] for i in listings[1:]],
-            "percent_change_7d": [i[change_7d_indis] for i in listings[1:]],
-            "percent_change_30d": [i[change_30d_indis] for i in listings[1:]],
-            "percent_change_60d": [i[change_60d_indis] for i in listings[1:]],
-            "percent_change_90d": [i[change_90d_indis] for i in listings[1:]],
-            "percent_change_1y": [i[change_1y_indis] for i in listings[1:]],
-            "percent_change_ytd": [i[change_ytd_indis] for i in listings[1:]],
-            "market_cap": [i[market_cap_indis] for i in listings[1:]],
-            "volume_24h": [i[volume_24h_indis] for i in listings[1:]],
-        }
+    for i in listings[1:]:
+        coin_name.append(i[name_indis])
+        coin_symbol.append(i[symbol_indis])
+        price.append(i[price_indis])
+        percent_change_1h.append(i[change_1h_indis])
+        percent_change_24h.append(i[change_24h_indis])
+        percent_change_7d.append(i[change_7d_indis])
+        percent_change_30d.append(i[change_30d_indis])
+        percent_change_60d.append(i[change_60d_indis])
+        percent_change_90d.append(i[change_90d_indis])
+        percent_change_1y.append(i[change_1y_indis])
+        percent_change_ytd.append(i[change_ytd_indis])
+        market_cap.append(i[market_cap_indis])
+        volume_24h.append(i[volume_24h_indis])
+
+    data_frame = pd.DataFrame(
+        columns=[
+            "coin_name",
+            "coin_symbol",
+            "market_cap",
+            "percent_change_1h",
+            "percent_change_24h",
+            "percent_change_7d",
+            "percent_change_30d",
+            "percent_change_60d",
+            "percent_change_90d",
+            "percent_change_1y",
+            "percent_change_ytd",
+            "price",
+            "volume_24h",
+        ]
     )
+    data_frame["coin_name"] = coin_name
+    data_frame["coin_symbol"] = coin_symbol
+    data_frame["price"] = price
+    data_frame["percent_change_1h"] = percent_change_1h
+    data_frame["percent_change_24h"] = percent_change_24h
+    data_frame["percent_change_7d"] = percent_change_7d
+    data_frame["percent_change_30d"] = percent_change_30d
+    data_frame["percent_change_60d"] = percent_change_60d
+    data_frame["percent_change_90d"] = percent_change_90d
+    data_frame["percent_change_1y"] = percent_change_1y
+    data_frame["percent_change_ytd"] = percent_change_ytd
+    data_frame["market_cap"] = market_cap
+    data_frame["volume_24h"] = volume_24h
+    print(data_frame)
+    return data_frame
 
 
 df = load_data()
