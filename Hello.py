@@ -63,7 +63,7 @@ currency_price_unit = col1.selectbox(" Fiyat için para birimini seçin", ("USD"
 
 
 # Web scraping of CoinMarketCap data
-@st.cache_data
+# @st.cache_data
 def load_data():
     """Fetch data from CoinMarketCap"""
     try:
