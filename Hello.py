@@ -70,11 +70,12 @@ def load_data():
         cmc = requests.get("https://coinmarketcap.com", timeout=10)
         soup = BeautifulSoup(cmc.content, "html.parser")
         data = soup.find("script", id="__NEXT_DATA__", type="application/json")
+        print(data)
         coin_data = json.loads(data.contents[0])
         coin_data1 = json.loads(coin_data["props"]["initialState"])
         listings = coin_data1["cryptocurrency"]["listingLatest"]["data"]
     except requests.exceptions.RequestException as e:
-        print(e)
+        # print(e)
         return None
 
     name_indis = listings[0]["keysArr"].index("name")
