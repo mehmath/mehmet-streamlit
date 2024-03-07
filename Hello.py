@@ -70,12 +70,13 @@ def load_data():
         cmc = requests.get("https://coinmarketcap.com", timeout=10)
         soup = BeautifulSoup(cmc.content, "html.parser")
         data = soup.find("script", id="__NEXT_DATA__", type="application/json")
-        print(data)
+        # print(data)
         coin_data = json.loads(data.contents[0])
         coin_data1 = json.loads(coin_data["props"]["initialState"])
         listings = coin_data1["cryptocurrency"]["listingLatest"]["data"]
+        st.json(listings)
     except requests.exceptions.RequestException as e:
-        # print(e)
+        print(e)
         return None
 
     name_indis = listings[0]["keysArr"].index("name")
@@ -185,6 +186,8 @@ df_change = pd.concat(
     axis=1,
 )
 df_change = df_change.set_index("coin_symbol")
+# print(type(df_change["percent_change_90d"]))
+# print(df_change["percent_change_90d"])
 df_change["positive_percent_change_1h"] = df_change["percent_change_1h"] > 0
 df_change["positive_percent_change_24h"] = df_change["percent_change_24h"] > 0
 df_change["positive_percent_change_7d"] = df_change["percent_change_7d"] > 0
