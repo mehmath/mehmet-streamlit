@@ -59,7 +59,9 @@ col2, col3 = st.columns((2, 1))
 col1.header("Ayarlar")
 
 ## Sidebar - Currency price unit
-currency_price_unit = col1.selectbox(" Fiyat için para birimini seçin", ("USD", "", ""))
+currency_price_unit = col1.selectbox(
+    " Fiyat için para birimini seçin", ("USD", "BTC", "")
+)
 
 
 # Web scraping of CoinMarketCap data
