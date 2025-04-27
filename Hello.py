@@ -65,68 +65,155 @@ currency_price_unit = col1.selectbox(
 
 
 # Web scraping of CoinMarketCap data
-# @st.cache_data
+# @st.cache_data # Consider re-enabling caching after debugging
+# Web scraping of CoinMarketCap data
+# @st.cache_data # Hata ayıklama sonrası önbelleğe almayı yeniden etkinleştirmeyi düşünün
 def load_data():
     """Fetch data from CoinMarketCap"""
     try:
-        cmc = requests.get("https://coinmarketcap.com", timeout=10)
-        soup = BeautifulSoup(cmc.content, "html.parser")
-        data = soup.find("script", id="__NEXT_DATA__", type="application/json")
-        # print(data)
-        coin_data = json.loads(data.contents[0])
-        coin_data1 = json.loads(coin_data["props"]["initialState"])
-        listings = coin_data1["cryptocurrency"]["listingLatest"]["data"]
-        st.json(listings)
-    except requests.exceptions.RequestException as e:
-        print(e)
-        return None
-
-    name_indis = listings[0]["keysArr"].index("name")
-    symbol_indis = listings[0]["keysArr"].index("symbol")
-    price_indis = listings[0]["keysArr"].index("quote.USD.price")
-    change_1h_indis = listings[0]["keysArr"].index("quote.USD.percentChange1h")
-    change_24h_indis = listings[0]["keysArr"].index("quote.USD.percentChange24h")
-    change_7d_indis = listings[0]["keysArr"].index("quote.USD.percentChange7d")
-    market_cap_indis = listings[0]["keysArr"].index("quote.USD.marketCap")
-    volume_24h_indis = listings[0]["keysArr"].index("quote.USD.volume24h")
-    change_30d_indis = listings[0]["keysArr"].index("quote.USD.percentChange30d")
-    change_60d_indis = listings[0]["keysArr"].index("quote.USD.percentChange60d")
-    change_90d_indis = listings[0]["keysArr"].index("quote.USD.percentChange90d")
-    change_1y_indis = listings[0]["keysArr"].index("quote.USD.percentChange1y")
-    change_ytd_indis = listings[0]["keysArr"].index(
-        "quote.USD.ytdPriceChangePercentage"
-    )
-
-    return pd.DataFrame(
-        {
-            "coin_name": [i[name_indis] for i in listings[1:]],
-            "coin_symbol": [i[symbol_indis] for i in listings[1:]],
-            "price": [i[price_indis] for i in listings[1:]],
-            "percent_change_1h": [i[change_1h_indis] for i in listings[1:]],
-            "percent_change_24h": [i[change_24h_indis] for i in listings[1:]],
-            "percent_change_7d": [i[change_7d_indis] for i in listings[1:]],
-            "percent_change_30d": [i[change_30d_indis] for i in listings[1:]],
-            "percent_change_60d": [i[change_60d_indis] for i in listings[1:]],
-            "percent_change_90d": [i[change_90d_indis] for i in listings[1:]],
-            "percent_change_1y": [i[change_1y_indis] for i in listings[1:]],
-            "percent_change_ytd": [i[change_ytd_indis] for i in listings[1:]],
-            "market_cap": [i[market_cap_indis] for i in listings[1:]],
-            "volume_24h": [i[volume_24h_indis] for i in listings[1:]],
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
         }
-    )
+        cmc = requests.get("https://coinmarketcap.com", headers=headers, timeout=10)
+        cmc.raise_for_status() # Kötü yanıtlar için HTTPError yükselt (4xx veya 5xx)
+        soup = BeautifulSoup(cmc.content, "html.parser")
 
+        data = soup.find("script", id="__NEXT_DATA__", type="application/json")
+        if not data or not data.contents:
+            st.error("Could not find __NEXT_DATA__ script tag on CoinMarketCap")
+            return pd.DataFrame()
+
+        coin_data = json.loads(data.contents[0])
+
+        # Güncellenmiş: Veri yapısını log dosyasından kontrol edin
+        # 'props' -> 'pageProps' -> 'dehydratedState' -> 'queries' -> [0] -> 'state' -> 'data' -> 'data' -> 'listing' -> 'cryptoCurrencyList'
+        try:
+            listings = coin_data["props"]["pageProps"]["dehydratedState"]["queries"][0]["state"]["data"]["data"]["listing"]["cryptoCurrencyList"]
+        except (KeyError, IndexError, TypeError) as e:
+            st.error(f"Error accessing cryptocurrency list in API response. Structure might have changed. Error: {e}")
+            # Hata ayıklama için API yanıtının bir kısmını göster
+            st.json(coin_data.get("props", {}).get("pageProps", {}).get("dehydratedState", {}))
+            return pd.DataFrame()
+
+
+        if not listings or not isinstance(listings, list):
+             st.error("No cryptocurrency data found in the expected path or data is not a list.")
+             return pd.DataFrame()
+
+        # Güncellenmiş: Veri çıkarma mantığı
+        extracted_data = []
+        for coin in listings:
+            # Temel bilgileri güvenli bir şekilde al
+            coin_name = coin.get("name")
+            coin_symbol = coin.get("symbol")
+            cmc_rank = coin.get("cmcRank")
+
+            # Fiyat tekliflerini (quotes) güvenli bir şekilde al
+            quotes = coin.get("quotes", [])
+            usd_quote = next((q for q in quotes if q.get("name") == "USD"), None) # USD fiyatını bul
+            btc_quote = next((q for q in quotes if q.get("name") == "BTC"), None) # BTC fiyatını bul (gerekirse)
+
+            if not usd_quote: # En azından USD fiyatı olmalı
+                continue # USD fiyatı yoksa bu coini atla
+
+            # Gerekli alanları USD fiyat teklifinden al
+            price = usd_quote.get("price")
+            market_cap = usd_quote.get("marketCap")
+            percent_change_1h = usd_quote.get("percentChange1h")
+            percent_change_24h = usd_quote.get("percentChange24h")
+            percent_change_7d = usd_quote.get("percentChange7d")
+            percent_change_30d = usd_quote.get("percentChange30d")
+            percent_change_60d = usd_quote.get("percentChange60d")
+            percent_change_90d = usd_quote.get("percentChange90d")
+            volume_24h = usd_quote.get("volume24h")
+            # Yıllık ve YTD (Yılbaşından Bugüne) değişim CoinMarketCap API'sinde farklı isimlere sahip olabilir, kontrol edilmeli
+            # Örnek olarak varsayılan değerler kullanıldı, API yanıtına göre güncelleyin
+            percent_change_1y = usd_quote.get("percentChange1y") # Bu anahtarın varlığından emin olun
+            percent_change_ytd = usd_quote.get("ytdPriceChangePercentage") # Bu anahtarın varlığından emin olun
+
+
+            extracted_data.append({
+                 "coin_name": coin_name,
+                 "coin_symbol": coin_symbol,
+                 "rank": cmc_rank,
+                 "price": price,
+                 "percent_change_1h": percent_change_1h,
+                 "percent_change_24h": percent_change_24h,
+                 "percent_change_7d": percent_change_7d,
+                 "percent_change_30d": percent_change_30d,
+                 "percent_change_60d": percent_change_60d,
+                 "percent_change_90d": percent_change_90d,
+                 "percent_change_1y": percent_change_1y,
+                 "percent_change_ytd": percent_change_ytd,
+                 "market_cap": market_cap,
+                 "volume_24h": volume_24h,
+             })
+
+        df = pd.DataFrame(extracted_data)
+
+         # İsteğe bağlı: Temel verilerin (ör. isim, sembol, fiyat) eksik olduğu satırları bırak
+        essential_cols = ["coin_name", "coin_symbol", "price"]
+        df.dropna(subset=essential_cols, inplace=True)
+
+         # Sıralama ve sayı seçimi gibi diğer işlemler için sütun adlarının tutarlı olduğundan emin olun
+         # Örneğin, rank sütununu kullanmak isterseniz 'rank' olarak adlandırıldığından emin olun.
+         # df.rename(columns={'rank': 'cmcRank'}, inplace=True) # Gerekirse yeniden adlandırın
+
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"CoinMarketCap'e bağlanırken hata oluştu: {e}")
+        return pd.DataFrame() # Bağlantı hatasında boş DataFrame döndür
+    except json.JSONDecodeError as e:
+        st.error(f"API yanıtı JSON olarak ayrıştırılamadı: {e}")
+        st.text(cmc.text[:500] + "...") # Hata ayıklama için ham yanıtın bir kısmını göster
+        return pd.DataFrame() # JSON hatasında boş DataFrame döndür
+    except Exception as e: # Diğer beklenmedik hataları yakala
+        st.error(f"Veri yüklenirken beklenmedik bir hata oluştu: {e}")
+        import traceback
+        st.error(traceback.format_exc()) # Hata ayıklama için tam traceback'i yazdır
+        return pd.DataFrame()
+
+    # 'currency_price_unit' seçimine göre fiyatları ayarlama (bu kısım zaten kodunuzda mevcut olabilir)
+    # Eğer BTC fiyatlarını göstermek istiyorsanız benzer bir mantıkla BTC fiyatını seçmeniz gerekir.
+    # Örneğin:
+    # if currency_price_unit == 'BTC' and btc_quote:
+    #     price = btc_quote.get("price")
+    #     # BTC için diğer değişim yüzdelerini de almanız gerekebilir
+    # elif currency_price_unit == 'USD' and usd_quote:
+    #     price = usd_quote.get("price")
+    # else: # Varsayılan USD
+    #     price = usd_quote.get("price") if usd_quote else None
+
+
+    return df
 
 df = load_data()
 
-## Sidebar - Cryptocurrency selections
-sorted_coin = sorted(df["coin_symbol"])
-selected_coin = col1.multiselect("Cryptocurrency", sorted_coin, sorted_coin)
+# Add a check here to ensure df is not empty before proceeding
+if df is None or df.empty:
+    st.error("Veri yüklenemediği için uygulama devam edemiyor.")
+    st.stop() # Stop execution if data loading failed
 
-df_selected_coin = df[(df["coin_symbol"].isin(selected_coin))]  # Filtering data
+## Sidebar - Cryptocurrency selections
+# Check if 'coin_symbol' column exists before sorting/selecting
+if "coin_symbol" in df.columns:
+    sorted_coin = sorted(df["coin_symbol"].unique()) # Use unique symbols
+    selected_coin = col1.multiselect("Cryptocurrency", sorted_coin, sorted_coin) # Default to all
+    df_selected_coin = df[(df["coin_symbol"].isin(selected_coin))]  # Filtering data
+else:
+    st.warning("'coin_symbol' sütunu DataFrame'de bulunamadı.")
+    selected_coin = [] # Set selected_coin to empty list
+    df_selected_coin = pd.DataFrame() # Use empty DataFrame
 
 ## Sidebar - Number of coins to display
-num_coin = col1.slider("Kaç Coin Gösterilsin", 1, 100, 100)
-df_coins = df_selected_coin[:num_coin]
+# Ensure df_selected_coin is not empty before slicing
+if not df_selected_coin.empty:
+    num_coin = col1.slider("Kaç Coin Gösterilsin", 1, len(df_selected_coin), min(100, len(df_selected_coin))) # Adjust max/default based on available coins
+    df_coins = df_selected_coin[:num_coin]
+else:
+    num_coin = 0
+    df_coins = pd.DataFrame()
+
 
 ## Sidebar - Percent change timeframe
 percent_timeframe = col1.selectbox(
@@ -156,13 +243,19 @@ col2.write(
     + " columns."
 )
 
-col2.dataframe(df_coins)
+# Display dataframe only if it's not empty
+if not df_coins.empty:
+    col2.dataframe(df_coins)
+else:
+    col2.write("Gösterilecek veri yok.")
 
 
 # Download CSV data
 # https://discuss.streamlit.io/t/how-to-download-file-in-streamlit/1806
 def filedownload(data):
     """download csv file"""
+    if data.empty:
+        return "İndirilecek veri yok."
     csv = data.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()  # strings <-> bytes conversions
     return f'<a href="data:file/csv;base64,{b64}" download="crypto.csv">Download CSV File</a>'
@@ -173,115 +266,84 @@ col2.markdown(filedownload(df_selected_coin), unsafe_allow_html=True)
 # ---------------------------------#
 # Preparing data for Bar plot of % Price change
 col2.subheader("Table of % Price Change")
-df_change = pd.concat(
-    [
-        df_coins.coin_symbol,
-        df_coins.percent_change_1h,
-        df_coins.percent_change_24h,
-        df_coins.percent_change_7d,
-        df_coins.percent_change_30d,
-        df_coins.percent_change_60d,
-        df_coins.percent_change_90d,
-        df_coins.percent_change_1y,
-        df_coins.percent_change_ytd,
-    ],
-    axis=1,
-)
-df_change = df_change.set_index("coin_symbol")
-# print(type(df_change["percent_change_90d"]))
-# print(df_change["percent_change_90d"])
-df_change["positive_percent_change_1h"] = df_change["percent_change_1h"] > 0
-df_change["positive_percent_change_24h"] = df_change["percent_change_24h"] > 0
-df_change["positive_percent_change_7d"] = df_change["percent_change_7d"] > 0
-df_change["positive_percent_change_30d"] = df_change["percent_change_30d"] > 0
-df_change["positive_percent_change_60d"] = df_change["percent_change_60d"] > 0
-df_change["positive_percent_change_90d"] = df_change["percent_change_90d"] > 0
-df_change["positive_percent_change_1y"] = df_change["percent_change_1y"] > 0
-df_change["positive_percent_change_ytd"] = df_change["percent_change_ytd"] > 0
-col2.dataframe(df_change)
+
+# Check if df_coins is empty before creating df_change
+if not df_coins.empty and "coin_symbol" in df_coins.columns:
+    # Ensure all required percentage columns exist before concatenation
+    required_cols = [
+        "coin_symbol",
+        "percent_change_1h", "percent_change_24h", "percent_change_7d",
+        "percent_change_30d", "percent_change_60d", "percent_change_90d",
+        "percent_change_1y", "percent_change_ytd"
+    ]
+    available_cols = [col for col in required_cols if col in df_coins.columns]
+    missing_cols = set(required_cols) - set(available_cols)
+    if missing_cols:
+        st.warning(f"Grafik için eksik sütunlar: {', '.join(missing_cols)}")
+
+    if "coin_symbol" in available_cols: # Need at least coin_symbol
+        df_change = df_coins[available_cols].copy() # Use copy to avoid SettingWithCopyWarning
+        df_change = df_change.set_index("coin_symbol")
+
+        # Create boolean columns only for available percentage columns
+        for col in available_cols:
+            if col != "coin_symbol":
+                # Ensure column is numeric before comparison
+                df_change[col] = pd.to_numeric(df_change[col], errors='coerce')
+                # Check if column conversion was successful before creating boolean col
+                if pd.api.types.is_numeric_dtype(df_change[col]):
+                    df_change[f"positive_{col}"] = df_change[col] > 0
+                else:
+                    # Handle cases where conversion failed (e.g., column remains object type)
+                    # Maybe fill positive col with False or skip it
+                    df_change[f"positive_{col}"] = False # Or None, or skip
+
+        col2.dataframe(df_change)
+    else:
+        df_change = pd.DataFrame() # Create empty df_change if coin_symbol is missing
+        col2.write("Değişim tablosu için veri yok ('coin_symbol' eksik).")
+
+else:
+    df_change = pd.DataFrame() # Create empty df_change if df_coins is empty
+    col2.write("Değişim tablosu için veri yok.")
+
 
 # Conditional creation of Bar plot (time frame)
 col3.subheader("Bar plot of % Price Change")
 
-if percent_timeframe == "7d":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_7d"])
-    col3.write("*7 days period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_7d"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_7d.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "24h":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_24h"])
-    col3.write("*24 hour period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_24h"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_24h.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "30d":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_30d"])
-    col3.write("*30 days period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_30d"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_30d.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "60d":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_60d"])
-    col3.write("*60 days period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_60d"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_60d.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "90d":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_90d"])
-    col3.write("*90 days period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_90d"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_90d.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "1y":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_1y"])
-    col3.write("*1 year period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_1y"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_1y.map({True: "g", False: "r"}),
-    )
-elif percent_timeframe == "ytd":
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_ytd"])
-    col3.write("*Year to date period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_ytd"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_ytd.map({True: "g", False: "r"}),
-    )
-else:
-    if sort_values == "Yes":
-        df_change = df_change.sort_values(by=["percent_change_1h"])
-    col3.write("*1 hour period*")
-    plt.figure(figsize=(5, 25))
-    plt.subplots_adjust(top=1, bottom=0)
-    df_change["percent_change_1h"].plot(
-        kind="barh",
-        color=df_change.positive_percent_change_1h.map({True: "g", False: "r"}),
-    )
+# Check if df_change is empty or the selected timeframe column exists
+if not df_change.empty and selected_percent_timeframe in df_change.columns:
+    plot_col = selected_percent_timeframe
+    positive_col = f"positive_{plot_col}"
 
-col3.pyplot(plt)
+    # Ensure the positive column exists and the plot column is numeric
+    if positive_col in df_change.columns and pd.api.types.is_numeric_dtype(df_change[plot_col]):
+        df_plot = df_change[[plot_col, positive_col]].dropna(subset=[plot_col]) # Drop NaNs for plotting
+
+        if not df_plot.empty:
+            if sort_values == "Yes":
+                df_plot = df_plot.sort_values(by=[plot_col])
+
+            col3.write(f"*{percent_timeframe} period*")
+            # Use try-except for plotting as a final safeguard
+            try:
+                fig, ax = plt.subplots(figsize=(5, max(1, len(df_plot) * 0.3))) # Adjust height
+                fig.subplots_adjust(left=0.3, top=1, bottom=0.1) # Adjust margins for labels
+                df_plot[plot_col].plot(
+                    kind="barh",
+                    color=df_plot[positive_col].map({True: "g", False: "r"}),
+                    ax=ax # Pass axis to plot
+                )
+                ax.set_ylabel("") # Remove y-axis label if needed
+                col3.pyplot(fig) # Pass the figure object
+                plt.close(fig) # Close the figure to free memory
+            except Exception as plot_err:
+                col3.error(f"Grafik çizilirken hata oluştu: {plot_err}")
+        else:
+            col3.write(f"'{plot_col}' için çizilecek geçerli veri yok.")
+    else:
+         col3.write(f"'{plot_col}' için grafik çizilemiyor (veri eksik veya numerik değil).")
+
+else:
+    col3.write("Grafik için veri yok veya seçilen zaman aralığı sütunu eksik.")
+
