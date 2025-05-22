@@ -84,11 +84,18 @@ def load_data():
             return pd.DataFrame()
 
         coin_data = json.loads(data.contents[0])
+# coin_data'yı bir dosyaya yaz
+        # try:
+        #     with open("coin_data.json", "w", encoding="utf-8") as f:
+        #         json.dump(coin_data, f, ensure_ascii=False, indent=4)
+        #     st.success("coin_data başarıyla 'coin_data.json' dosyasına yazıldı.")
+        # except IOError as e:
+        #     st.error(f"coin_data dosyasına yazılırken hata oluştu: {e}")
 
         # Güncellenmiş: Veri yapısını log dosyasından kontrol edin
         # 'props' -> 'pageProps' -> 'dehydratedState' -> 'queries' -> [0] -> 'state' -> 'data' -> 'data' -> 'listing' -> 'cryptoCurrencyList'
         try:
-            listings = coin_data["props"]["pageProps"]["dehydratedState"]["queries"][0]["state"]["data"]["data"]["listing"]["cryptoCurrencyList"]
+            listings = coin_data["props"]["dehydratedState"]["queries"][1]["state"]["data"]["data"]["listing"]["cryptoCurrencyList"]
         except (KeyError, IndexError, TypeError) as e:
             st.error(f"Error accessing cryptocurrency list in API response. Structure might have changed. Error: {e}")
             # Hata ayıklama için API yanıtının bir kısmını göster
